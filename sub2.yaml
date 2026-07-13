@@ -1,0 +1,33 @@
+services:
+  model:
+    image: hoanglvuitm/qwen-warmup:v6
+    entrypoint:
+      - python3
+      - -u
+      - -m
+      - vllm.entrypoints.openai.api_server
+    command:
+      - --model=/model
+      - --served-model-name=Qwen3.5-2B
+      - --host=0.0.0.0
+      - --port=8000
+      - --quantization=fp8
+      - --kv-cache-dtype=fp8
+      - --max-model-len=29000
+      - --gpu-memory-utilization=0.95
+      - --max-num-seqs=32                 # Mức tối ưu cho MiG H200
+      - --enable-chunked-prefill
+      - --max-num-batched-tokens=12288     # Vừa đủ chứa system prompt (~11k tokens) để HIT cache 100%
+      - --enable-prefix-caching
+    ports:
+      - "8000:8000"
+    shm_size: "4g"
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
