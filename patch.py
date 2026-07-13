@@ -179,30 +179,9 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
                     if line.strip():
                         trace_items.append(_json.loads(line))
             
-            def is_messages_prefix(list_a, list_b):
-                if len(list_a) > len(list_b):
-                    return False
-                for i in range(len(list_a)):
-                    if list_a[i].get("role") != list_b[i].get("role") or list_a[i].get("content") != list_b[i].get("content"):
-                        return False
-                return True
-
-            longest_turns = []
-            for item in trace_items:
-                body = item.get("body", {})
-                messages = body.get("messages", [])
-                is_prefix = False
-                for other in trace_items:
-                    if other is item:
-                        continue
-                    other_messages = other.get("body", {}).get("messages", [])
-                    if is_messages_prefix(messages, other_messages):
-                        is_prefix = True
-                        break
-                if not is_prefix:
-                    longest_turns.append(item)
+            longest_turns = trace_items
             
-            print(f"🔥 [HACK] Tìm thấy {len(longest_turns)} cuộc hội thoại đầy đủ. Đang nạp KV Cache trực tiếp...")
+            print(f"🔥 [HACK] Tiến hành nạp KV Cache In-Process cho {len(longest_turns)} requests...")
             model_name = getattr(args, "served_model_name", [None])[0] or getattr(args, "model", "Qwen3.5-2B")
             
             for idx, item in enumerate(longest_turns):

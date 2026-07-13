@@ -17,7 +17,7 @@ services:
       - --gpu-memory-utilization=0.95
       - --max-num-seqs=32                 # Mức tối ưu cho MiG H200
       - --enable-chunked-prefill
-      - --max-num-batched-tokens=12288     # Vừa đủ chứa system prompt (~11k tokens) để HIT cache 100%
+      - --max-num-batched-tokens=30000     # Vừa đủ chứa system prompt (~11k tokens) để HIT cache 100%
       - --enable-prefix-caching
     ports:
       - "8000:8000"
