@@ -170,6 +170,7 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
         print("🔥 [HACK] BẮT ĐẦU TIẾN TRÌNH WARMUP TRONG THÂN KHỞI TẠO (IN-PROCESS)...")
         try:
             import json as _json
+            from vllm.entrypoints.openai.protocol import ChatCompletionRequest
             from vllm.sampling_params import SamplingParams
             
             trace_items = []
@@ -202,28 +203,35 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
                     longest_turns.append(item)
             
             print(f"🔥 [HACK] Tìm thấy {len(longest_turns)} cuộc hội thoại đầy đủ. Đang nạp KV Cache trực tiếp...")
-            tokenizer = engine_client.get_tokenizer()
+            model_name = getattr(args, "served_model_name", [None])[0] or getattr(args, "model", "Qwen3.5-2B")
             
             for idx, item in enumerate(longest_turns):
                 body = item.get("body", {})
                 messages = body.get("messages", [])
                 
-                # Tokenize thông qua chat template
-                prompt_token_ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
-                
-                sampling_params = SamplingParams(max_tokens=1, temperature=0.0)
-                request_id = f"warmup-direct-{idx}"
-                
-                # Gọi trực tiếp qua generate() nội bộ của engine_client
-                generator = engine_client.generate(
-                    prompt=prompt_token_ids,
-                    sampling_params=sampling_params,
-                    request_id=request_id
+                # Tạo ChatCompletionRequest
+                chat_req = ChatCompletionRequest(
+                    model=model_name,
+                    messages=messages,
                 )
                 
-                # Chờ prefill hoàn thành
-                async for output in generator:
-                    pass
+                # Gọi render_chat chính thức qua OnlineRenderer để tạo EngineInput hoàn chỉnh và chuẩn xác
+                conversation, engine_inputs = await app.state.online_renderer.render_chat(chat_req)
+                
+                for i, engine_input in enumerate(engine_inputs):
+                    sampling_params = SamplingParams(max_tokens=1, temperature=0.0)
+                    request_id = f"warmup-direct-{idx}-{i}"
+                    
+                    # Gọi trực tiếp qua generate() nội bộ của engine_client
+                    generator = engine_client.generate(
+                        prompt=engine_input,
+                        sampling_params=sampling_params,
+                        request_id=request_id
+                    )
+                    
+                    # Chờ prefill hoàn thành
+                    async for output in generator:
+                        pass
                 
                 # Đăng ký các sub-prefixes vào cache để bỏ qua Gate
                 for i in range(1, len(messages) + 1):
@@ -232,7 +240,9 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
             
             print(f"✅ [HACK] NẠP XONG KV CACHE IN-PROCESS CHO {len(longest_turns)} CUỘC HỘI THOẠI!")
         except Exception as e:
-            print(f"❌ [HACK] Lỗi trong tiến trình warmup in-process: {e}")'''
+            print(f"❌ [HACK] Lỗi trong tiến trình warmup in-process: {e}")
+            import traceback as _traceback
+            _traceback.print_exc()'''
 
 content = content.replace(target_build_and_serve, warmup_code)
 
