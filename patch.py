@@ -170,7 +170,7 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
         print("🔥 [HACK] BẮT ĐẦU TIẾN TRÌNH WARMUP TRONG THÂN KHỞI TẠO (IN-PROCESS)...")
         try:
             import json as _json
-            from vllm.entrypoints.openai.protocol import ChatCompletionRequest
+            from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest
             from vllm.sampling_params import SamplingParams
             
             trace_items = []
