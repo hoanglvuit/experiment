@@ -215,8 +215,29 @@ warmup_code = '''await init_app_state(engine_client, app.state, args, supported_
                     messages=messages,
                 )
                 
-                # Gọi render_chat chính thức qua OnlineRenderer để tạo EngineInput hoàn chỉnh và chuẩn xác
-                conversation, engine_inputs = await app.state.online_renderer.render_chat(chat_req)
+                # Cố gắng render chat hoặc fallback nếu vLLM version cũ không có online_renderer
+                if hasattr(app.state, 'online_renderer'):
+                    conversation, engine_inputs = await app.state.online_renderer.render_chat(chat_req)
+                else:
+                    tokenizer = None
+                    if hasattr(engine_client, 'get_tokenizer'):
+                        # get_tokenizer() can be async or sync
+                        tokenizer_ret = engine_client.get_tokenizer()
+                        import inspect as _inspect
+                        if _inspect.iscoroutine(tokenizer_ret):
+                            tokenizer = await tokenizer_ret
+                        else:
+                            tokenizer = tokenizer_ret
+                    elif hasattr(engine_client, 'tokenizer'):
+                        tokenizer = engine_client.tokenizer.tokenizer
+                    elif hasattr(engine_client, 'renderer'):
+                        tokenizer = engine_client.renderer.tokenizer
+                        
+                    if hasattr(tokenizer, 'tokenizer'):
+                        tokenizer = tokenizer.tokenizer
+                        
+                    prompt_str = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    engine_inputs = [prompt_str]
                 
                 for i, engine_input in enumerate(engine_inputs):
                     sampling_params = SamplingParams(max_tokens=1, temperature=0.0)
