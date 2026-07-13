@@ -1,6 +1,5 @@
 FROM vllm/vllm-openai:v0.22.1
 
-COPY system_prompt.txt /system_prompt.txt
 COPY trace-round1.json /trace-round1.json
 COPY patch.py /patch.py
 
